@@ -20,6 +20,7 @@
 #include "kcscalewidget.h"
 #include "qwt_picker_machine.h"
 #include "smithchart.h"
+#include "cmath"
 
 #define DARKSTYLE
 //#define BRIGHTSTYLE
@@ -100,6 +101,10 @@ MainWindow::MainWindow(QWidget *parent) :
         QColor(cfg->value("s11/linecolor",QColor(0,255,230).rgb()).toUInt()),
         cfg->value("s11/linewidth",1.0).toFloat()
     ));
+    s21curve->setPen( QPen(
+        QColor(cfg->value("s21/linecolor",QColor(0,255,230).rgb()).toUInt()),
+        cfg->value("s21/linewidth",1.0).toFloat()
+    ));
     grid->setMajorPen( QPen(
         QColor(cfg->value("background/majorcolor",QColor(40,40,40).rgb()).toUInt()),
         cfg->value("background/majorwidth", 1.0).toFloat()
@@ -152,7 +157,14 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(bottomScaleWidget,  SIGNAL(scaleChanged()), this, SLOT(autoRefine()));
     connect(ui->plot->axisWidget(QwtPlot::xBottom), SIGNAL(scaleDivChanged()), this, SLOT(autoRefine()));
 
-    ui->smith->setStyle(QBrush(Qt::black), QColor(180,255,250), QPen(QColor(Qt::yellow), 1.0), QPen(QColor(Qt::yellow),1.0));
+    ui->smith->setStyle(
+        QBrush(Qt::black),
+        QColor(90,130,125),
+        //QColor(0,150,50),
+        //QColor(80, 120, 150),
+        QPen(QColor(Qt::yellow), 1.5),
+        QPen(QColor(Qt::yellow), 1.5)
+    );
     ui->smith->showLine();
     ui->smith->setPadding(0.05);
 
@@ -203,6 +215,20 @@ void MainWindow::RI(qreal cent, qreal span, int pts)
         qDebug() << cmd;
     }
 }
+
+
+void MainWindow::S21(qreal cent, qreal span, int pts)
+{
+    if(cent == 0 || span == 0 || pts == 0) return;
+//    if(isnan(cent) || isinf(cent) || isnan(span) || isinf(span)) return;
+    startReceive();
+    if( _pSocket->waitForConnected() ) {
+        QByteArray cmd = QString("$S21,run,calon,lowlo,point=%1,CS,cent=%2,span=%3\n").arg(pts).arg(cent,0,'f',0).arg(span,0,'f',0).toLatin1();
+        _pSocket->write(cmd);
+        qDebug() << cmd;
+    }
+}
+
 
 void MainWindow::on_ConnectpushButton_clicked()
 {
@@ -259,10 +285,6 @@ void MainWindow::displayS11VSWR(QVector<qreal> freq, QVector<qreal> vswr)
     }
 }
 
-void MainWindow::displayS11MA(QVector<qreal> freq, QVector<qreal> mag, QVector<qreal> phase)
-{
-
-}
 
 void MainWindow::displayS11RI(QVector<qreal> freq, QVector<QPointF> ri)
 {
@@ -270,9 +292,26 @@ void MainWindow::displayS11RI(QVector<qreal> freq, QVector<QPointF> ri)
     ui->smith->setReflection(ri);
 }
 
-void MainWindow::displayS21RI(QVector<qreal> freq, QVector<QPointF> ri)
+void MainWindow::displayS21(QVector<qreal> freq, QVector<qreal> lose)
 {
-
+    s21curve->setData(new QwtPointArrayData(freq, lose));
+    s21curve->setVisible(true);
+    //s21curve->setVisible(false);
+    if(autoscaleAndZoomReset)
+    {
+        //change axes to fit data
+        ui->plot->setAxisAutoScale(QwtPlot::yLeft);
+        ui->plot->setAxisAutoScale(QwtPlot::xBottom);
+        //set zoomer initial state to current axes
+        zoomer->setZoomBase();
+        autoscaleAndZoomReset = false;
+    }
+    else
+    {
+        ui->plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        ui->plot->setAxisAutoScale(QwtPlot::xBottom, false);
+        ui->plot->replot();
+    }
 }
 
 
@@ -289,12 +328,7 @@ void MainWindow::refinePlot()
     else if(pts > 1000) pts = 1000;
     */
     int pts = ui->PointlineEdit->text().toInt();
-    if (mesmode == 0){
-        VSWR(cent, span, pts);
-    }
-    if (mesmode == 1){
-        RI(cent, span, pts);
-    }
+    RI(cent, span, pts);
 }
 
 void MainWindow::autoRefine()
@@ -342,39 +376,20 @@ void MainWindow::readTcpData()
             list.removeFirst();
             list.removeLast();
             QVector<qreal> freq(list.size());
-            QVector<QPointF> s21(list.size());
+            QVector<qreal> s21(list.size());
             for(int i = 0; i < list.size(); i++)
             {
                 QStringList sample = list[i].split(',');
                 if(sample.size() < 3) continue;
                 freq[i] = sample[0].toDouble();
-                s21[i] = QPointF(sample[1].toDouble(), sample[2].toDouble());
+                s21[i] = sample[1].toDouble();
             }
             qint64 deltaT = receiveElapsed->elapsed();
             ui->statusBar->showMessage(QString(trUtf8("S21:采集到%1数据点,耗时%2ms")).arg(list.size()).arg(deltaT));
-            displayS21RI(freq, s21);
+            displayS21(freq, s21);
         }
 
-        if(list[0] == "start,s11,ma" && list[list.size()-1] == "end")
-        {
-            //get s11 rl
-            list.removeFirst();
-            list.removeLast();
-            QVector<qreal> freq(list.size());
-            QVector<qreal> ma(list.size());
-            QVector<qreal> phase(list.size());
-            for(int i = 0; i < list.size(); i++)
-            {
-                QStringList sample = list[i].split(',');
-                freq[i] = sample[0].toDouble();
-                ma[i] = 20*log10(sample[1].toDouble());
-                phase[i] = sample[2].toDouble();
-                //qDebug() << QPointF(freq[i], ma[i]);
-            }
-            qint64 deltaT = receiveElapsed->elapsed();
-            ui->statusBar->showMessage(QString(trUtf8("采集到%1数据点,耗时%2ms")).arg(list.size()).arg(deltaT));
-            displayS11MA(freq, ma, phase);
-        }
+
 
         if(list[0] == "start,s11,ri" && list[list.size()-1] == "end")
         {
@@ -383,16 +398,30 @@ void MainWindow::readTcpData()
             list.removeLast();
             QVector<qreal> freq(list.size());
             QVector<QPointF> s11(list.size());
+            QVector<qreal> S11dB(list.size());
+            QVector<qreal> S11VSWR(list.size());
             for(int i = 0; i < list.size(); i++)
             {
                 QStringList sample = list[i].split(',');
                 if(sample.size() < 3) continue;
                 freq[i] = sample[0].toDouble();
                 s11[i] = QPointF(sample[1].toDouble(), sample[2].toDouble());
+                S11dB[i] = 20*log10(sqrt(pow(s11[i].rx(),2) + pow(s11[i].ry(),2)));
+                S11VSWR[i] = (1+sqrt(pow(s11[i].rx(),2) + pow(s11[i].ry(),2)))/(1-sqrt(pow(s11[i].rx(),2) + pow(s11[i].ry(),2)));
             }
             qint64 deltaT = receiveElapsed->elapsed();
             ui->statusBar->showMessage(QString(trUtf8("S11:采集到%1数据点,耗时%2ms")).arg(list.size()).arg(deltaT));
             displayS11RI(freq, s11);
+            if(mesmode == 1){
+                displayS11VSWR(freq, S11dB);
+            }
+            if(mesmode == 0){
+                displayS11VSWR(freq, S11VSWR);
+            }
+            if(mesmode == 2){
+                displayS21(freq, S11VSWR);
+            }
+
         }
 
     }
@@ -431,6 +460,7 @@ void MainWindow::on_LocalpushButton_2_clicked()
 void MainWindow::on_S11initpushButton_clicked()
 {
     autoscaleAndZoomReset = true;
+    _pSocket->write("$S21,stop\n");
 
     if( _pSocket->waitForConnected() ) {
         _pSocket->write("$S11,init\n");
@@ -457,7 +487,7 @@ void MainWindow::on_vswrmespushButton_clicked()
 
     ui->history->insertItem(0,QString("C=%1,SP=%2,%3pts").arg(cent).arg(span).arg(pts));
 
-    VSWR(cent, span, pts);
+    RI(cent, span, pts);
     mesmode = 0; //vswr mesmode
 }
 
@@ -472,7 +502,7 @@ void MainWindow::on_history_doubleClicked(const QModelIndex &index)
     qreal span = args.at(1).mid(3).toDouble();
     int pts = args.at(2).mid(0,args.at(2).size() - 3).toInt();
 
-    VSWR(cent, span, pts);
+    RI(cent, span, pts);
 }
 
 void MainWindow::mouseDoubleClickEvent(QMouseEvent *event)
@@ -496,9 +526,31 @@ void MainWindow::on_RLMes_clicked()
     qreal span = ui->SpanlineEdit->text().toDouble();
     int pts = ui->PointlineEdit->text().toInt();
 
-
     ui->history->insertItem(0,QString("C=%1,SP=%2,%3pts").arg(cent).arg(span).arg(pts));
 
     RI(cent,span,pts);
     mesmode = 1; //return loss mesmode
+}
+
+void MainWindow::on_S21initpushButton_clicked()
+{
+    _pSocket->write("$S11,stop\n");
+    autoscaleAndZoomReset = true;
+
+    if( _pSocket->waitForConnected() ) {
+        _pSocket->write("$S21,init\n");
+    }
+
+    qreal cent = (3e9+250e3)/2;
+    qreal span = 3e9-250e3;
+    int pts = 100;
+
+    ui->CentlineEdit->setText(QString("%1").arg(cent));
+    ui->SpanlineEdit->setText(QString("%1").arg(span));
+    ui->PointlineEdit->setText(QString("%1").arg(pts));
+
+    S21(cent, span, pts);
+
+    mesmode = 2; //s21 mode
+
 }

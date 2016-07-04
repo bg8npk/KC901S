@@ -59,6 +59,9 @@ SmithChart::SmithChart(QWidget * parent) : QWidget(parent)
     pointDataPen = QPen(QColor("red"), 4.0, Qt::SolidLine, Qt::RoundCap);
     lineDataPen = QPen(QColor("blue"), 1.0);
 
+    textFont = QFont("consolas", 8, QFont::Light);
+    textFont.setStyleStrategy(QFont::PreferAntialias);
+
     thickPen = QPen(scaleColor, 0.75);
     thinPen = QPen(scaleColor, 0.25);
     textPen = QPen(scaleColor, 0.25);
@@ -81,7 +84,7 @@ void SmithChart::draw(QPainter * painter)
 
     // We set the pen and brush for the outern circles
     painter->setPen(thickPen);
-    painter->setBrush(palette().foreground());
+    painter->setBrush(QColor(scaleColor));
 
     // The outer circle
     QRectF rectangle(-512, -512, 1024, 1024);
@@ -168,7 +171,7 @@ void SmithChart::draw(QPainter * painter)
     */
 
     // We set the font for the scale
-    painter->setFont(QFont("monospace", 8, QFont::Light));
+    painter->setFont(textFont);
     painter->setPen(textPen);
 
     for(int i=0; i< 50; i++)
@@ -356,7 +359,7 @@ void SmithChart::showLine(bool show)
 void SmithChart::paintEvent(QPaintEvent * /* the event */)
 {
     QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
 
     painter.setBackground(backgroundBrush);
     painter.fillRect(0, 0, width(), height(), backgroundBrush);

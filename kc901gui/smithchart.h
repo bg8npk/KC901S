@@ -133,6 +133,7 @@ private:
 
     QBrush backgroundBrush;
     QColor scaleColor;
+    QFont textFont;
 
     qreal m_padding;
 };

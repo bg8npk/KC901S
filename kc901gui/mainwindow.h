@@ -35,6 +35,7 @@ protected:
 public slots:
     void VSWR(qreal cent, qreal span, int pts);
     void RI(qreal cent, qreal span, int pts);
+    void S21(qreal cent, qreal span, int pts);
 
 private slots:
     void on_ConnectpushButton_clicked();
@@ -62,9 +63,9 @@ private slots:
     void receiveTimeout();
 
     void displayS11VSWR(QVector<qreal> freq, QVector<qreal> vswr);
-    void displayS11MA(QVector<qreal> freq, QVector<qreal> mag, QVector<qreal>phase);
+    //void displayS11MA(QVector<qreal> freq, QVector<qreal> mag, QVector<qreal>phase);
     void displayS11RI(QVector<qreal> freq, QVector<QPointF> ri);
-    void displayS21RI(QVector<qreal> freq, QVector<QPointF> ri);
+    void displayS21(QVector<qreal> freq, QVector<qreal> lose);
     //void displayS11MA(QVector<qreal> freq, QVector<qreal> ma);
 
     void refinePlot();
@@ -75,6 +76,8 @@ private slots:
     void on_checkBox_toggled(bool checked);
 
     void on_RLMes_clicked();
+
+    void on_S21initpushButton_clicked();
 
 protected:
     void mouseDoubleClickEvent(QMouseEvent *event);
