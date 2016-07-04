@@ -6,7 +6,7 @@
     <message>
         <location filename="mainwindow.ui" line="14"/>
         <source>科创仪表局</source>
-        <translation type="unfinished"></translation>
+        <translation>KC901S</translation>
     </message>
     <message>
         <location filename="mainwindow.ui" line="510"/>
@@ -106,19 +106,19 @@
     <message>
         <location filename="mainwindow.cpp" line="222"/>
         <source>连接成功</source>
-        <translation type="unfinished"></translation>
+        <translation>Connect Successful</translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="235"/>
         <source>数据接收超时</source>
-        <translation type="unfinished"></translation>
+        <translation>Receive time out</translation>
     </message>
     <message>
         <location filename="mainwindow.cpp" line="312"/>
         <location filename="mainwindow.cpp" line="331"/>
         <location filename="mainwindow.cpp" line="353"/>
         <source>采集到%1数据点,耗时%2ms</source>
-        <translation type="unfinished"></translation>
+        <translation>Mesure %1 pts, use %2ms</translation>
     </message>
 </context>
 </TS>
