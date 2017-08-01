@@ -31,6 +31,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *);
+    void mouseDoubleClickEvent(QMouseEvent *event);
 
 public slots:
     void VSWR(qreal cent, qreal span, int pts);
@@ -72,15 +73,9 @@ private slots:
     void autoRefine();
 
     void on_history_doubleClicked(const QModelIndex &index);
-
     void on_checkBox_toggled(bool checked);
-
     void on_RLMes_clicked();
-
     void on_S21initpushButton_clicked();
-
-protected:
-    void mouseDoubleClickEvent(QMouseEvent *event);
 
 private:
     Ui::MainWindow *ui;
@@ -92,6 +87,8 @@ private:
     bool autoscaleAndZoomReset;
     KCScaleWidget *bottomScaleWidget;
     bool autoRefineEnable;
+
+    bool parseCentSpanPts(qreal *cent, qreal *span, int *pts);
 };
 
 #endif // MAINWINDOW_H

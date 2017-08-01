@@ -24,6 +24,7 @@
 
 #define DARKSTYLE
 //#define BRIGHTSTYLE
+#define KC901V_FIX
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -196,8 +197,12 @@ void MainWindow::VSWR(qreal cent, qreal span, int pts)
     if(cent == 0 || span == 0 || pts == 0) return;
 //    if(isnan(cent) || isinf(cent) || isnan(span) || isinf(span)) return;
     startReceive();
-    if( _pSocket->waitForConnected() ) {
+    if( _pSocket->isWritable() ) {
+#ifdef KC901V_FIX
+        QByteArray cmd = QString("$S11,run,calon,vswr,%1,CS,%2,%3\n").arg(pts).arg(cent,0,'f',0).arg(span,0,'f',0).toLatin1();
+#else
         QByteArray cmd = QString("$S11,run,calon,vswr,point=%1,CS,cent=%2,span=%3\n").arg(pts).arg(cent,0,'f',0).arg(span,0,'f',0).toLatin1();
+#endif
         _pSocket->write(cmd);
         qDebug() << cmd;
     }
@@ -209,8 +214,12 @@ void MainWindow::RI(qreal cent, qreal span, int pts)
     if(cent == 0 || span == 0 || pts == 0) return;
 //    if(isnan(cent) || isinf(cent) || isnan(span) || isinf(span)) return;
     startReceive();
-    if( _pSocket->waitForConnected() ) {
+    if( _pSocket->isWritable() ) {
+#ifdef KC901V_FIX
+        QByteArray cmd = QString("$S11,run,calon,ri,%1,CS,%2,%3\n").arg(pts).arg(cent,0,'f',0).arg(span,0,'f',0).toLatin1();
+#else
         QByteArray cmd = QString("$S11,run,calon,ri,point=%1,CS,cent=%2,span=%3\n").arg(pts).arg(cent,0,'f',0).arg(span,0,'f',0).toLatin1();
+#endif
         _pSocket->write(cmd);
         qDebug() << cmd;
     }
@@ -222,8 +231,12 @@ void MainWindow::S21(qreal cent, qreal span, int pts)
     if(cent == 0 || span == 0 || pts == 0) return;
 //    if(isnan(cent) || isinf(cent) || isnan(span) || isinf(span)) return;
     startReceive();
-    if( _pSocket->waitForConnected() ) {
+    if( _pSocket->isWritable() ) {
+#ifdef KC901V_FIX
+        QByteArray cmd = QString("$S21,run,calon,lowlo,%1,CS,%2,%3\n").arg(pts).arg(cent,0,'f',0).arg(span,0,'f',0).toLatin1();
+#else
         QByteArray cmd = QString("$S21,run,calon,lowlo,point=%1,CS,cent=%2,span=%3\n").arg(pts).arg(cent,0,'f',0).arg(span,0,'f',0).toLatin1();
+#endif
         _pSocket->write(cmd);
         qDebug() << cmd;
     }
@@ -424,6 +437,11 @@ void MainWindow::readTcpData()
 
         }
 
+        if(list[0] == "start,id" && list[list.size()-1] == "end")
+        {
+            ui->statusBar->showMessage(QString(trUtf8("申请控制成功, 目标设备序列号%1").arg(list[1])));
+        }
+
     }
     ui->label->setPlainText(receivedata);
 }
@@ -432,7 +450,8 @@ void MainWindow::on_SendpushButton_clicked()
 {
     senddata = ui->CommondlineEdit->text();
     cmddata = senddata.toUtf8();
-    if( _pSocket->waitForBytesWritten() ) {
+    startReceive();
+    if( _pSocket->isWritable() ) {
         _pSocket->write("$" + cmddata + "\n" );
     }
 
@@ -445,14 +464,15 @@ void MainWindow::on_ClosepushButton_clicked()
 
 void MainWindow::on_ControlpushButton_clicked()
 {
-    if( _pSocket->waitForConnected() ) {
+    if( _pSocket->isWritable() ) {
         _pSocket->write("C");
+        startReceive();
     }
 }
 
 void MainWindow::on_LocalpushButton_2_clicked()
 {
-    if( _pSocket->waitForConnected() ) {
+    if( _pSocket->isWritable() ) {
         _pSocket->write("$local\n");
     }
 }
@@ -462,13 +482,19 @@ void MainWindow::on_S11initpushButton_clicked()
     autoscaleAndZoomReset = true;
     _pSocket->write("$S21,stop\n");
 
-    if( _pSocket->waitForConnected() ) {
+    if( _pSocket->isWritable() ) {
         _pSocket->write("$S11,init\n");
     }
 
+#ifdef KC901V_FIX
+    qreal cent = 3450e6;
+    qreal span = 6800e6;
+    int pts = 100;
+#else
     qreal cent = (3e9+250e3)/2;
     qreal span = 3e9-250e3;
     int pts = 100;
+#endif
 
     ui->CentlineEdit->setText(QString("%1").arg(cent));
     ui->SpanlineEdit->setText(QString("%1").arg(span));
@@ -477,14 +503,57 @@ void MainWindow::on_S11initpushButton_clicked()
     VSWR(cent, span, pts);
 }
 
-void MainWindow::on_vswrmespushButton_clicked()
+void MainWindow::on_S21initpushButton_clicked()
 {
+    _pSocket->write("$S11,stop\n");
     autoscaleAndZoomReset = true;
 
-    qreal cent = ui->CentlineEdit->text().toDouble();
-    qreal span = ui->SpanlineEdit->text().toDouble();
-    int pts = ui->PointlineEdit->text().toInt();
+    if( _pSocket->isWritable() ) {
+        _pSocket->write("$S21,init\n");
+    }
 
+#ifdef KC901V_FIX
+    qreal cent = 3450e6;
+    qreal span = 6800e6;
+    int pts = 100;
+#else
+    qreal cent = (3e9+250e3)/2;
+    qreal span = 3e9-250e3;
+    int pts = 100;
+#endif
+
+    ui->CentlineEdit->setText(QString("%1").arg(cent));
+    ui->SpanlineEdit->setText(QString("%1").arg(span));
+    ui->PointlineEdit->setText(QString("%1").arg(pts));
+
+    S21(cent, span, pts);
+
+    mesmode = 2; //s21 mode
+
+}
+
+void MainWindow::on_RLMes_clicked()
+{
+    qreal cent, span;
+    int pts;
+    bool convert_ok = parseCentSpanPts(&cent, &span, &pts);
+    if(!convert_ok) return;
+
+    autoscaleAndZoomReset = true;
+    ui->history->insertItem(0,QString("C=%1,SP=%2,%3pts").arg(cent).arg(span).arg(pts));
+
+    RI(cent, span, pts);
+    mesmode = 1; //return loss mesmode
+}
+
+void MainWindow::on_vswrmespushButton_clicked()
+{
+    qreal cent, span;
+    int pts;
+    bool convert_ok = parseCentSpanPts(&cent, &span, &pts);
+    if(!convert_ok) return;
+
+    autoscaleAndZoomReset = true;
     ui->history->insertItem(0,QString("C=%1,SP=%2,%3pts").arg(cent).arg(span).arg(pts));
 
     RI(cent, span, pts);
@@ -519,38 +588,24 @@ void MainWindow::on_checkBox_toggled(bool checked)
     autoRefineEnable = checked;
 }
 
-void MainWindow::on_RLMes_clicked()
+bool MainWindow::parseCentSpanPts(qreal *cent, qreal *span, int *pts)
 {
-    autoscaleAndZoomReset = true;
-    qreal cent = ui->CentlineEdit->text().toDouble();
-    qreal span = ui->SpanlineEdit->text().toDouble();
-    int pts = ui->PointlineEdit->text().toInt();
-
-    ui->history->insertItem(0,QString("C=%1,SP=%2,%3pts").arg(cent).arg(span).arg(pts));
-
-    RI(cent,span,pts);
-    mesmode = 1; //return loss mesmode
-}
-
-void MainWindow::on_S21initpushButton_clicked()
-{
-    _pSocket->write("$S11,stop\n");
-    autoscaleAndZoomReset = true;
-
-    if( _pSocket->waitForConnected() ) {
-        _pSocket->write("$S21,init\n");
+    bool convert_ok;
+    if(!cent || !span || !pts) return false;
+    *cent = ui->CentlineEdit->text().toDouble(&convert_ok);
+    if(!convert_ok) {
+        ui->statusBar->showMessage(QString(trUtf8("中心频率参数错误")));
+        return false;
     }
-
-    qreal cent = (3e9+250e3)/2;
-    qreal span = 3e9-250e3;
-    int pts = 100;
-
-    ui->CentlineEdit->setText(QString("%1").arg(cent));
-    ui->SpanlineEdit->setText(QString("%1").arg(span));
-    ui->PointlineEdit->setText(QString("%1").arg(pts));
-
-    S21(cent, span, pts);
-
-    mesmode = 2; //s21 mode
-
+    *span = ui->SpanlineEdit->text().toDouble(&convert_ok);
+    if(!convert_ok) {
+        ui->statusBar->showMessage(QString(trUtf8("扫宽参数错误")));
+        return false;
+    }
+    *pts = ui->PointlineEdit->text().toInt(&convert_ok);
+    if(!convert_ok) {
+        ui->statusBar->showMessage(QString(trUtf8("扫宽参数错误")));
+        return false;
+    }
+    return true;
 }

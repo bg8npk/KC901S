@@ -7,10 +7,12 @@
 QT       += core gui
 QT       += network
 
+QMAKE_CXXFLAGS += -std=gnu++11
+
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 unix {
-    include (/usr/local/qwt-6.1.2/features/qwt.prf)
+    include (/usr/local/qwt-6.1.3/features/qwt.prf)
 }
 
 win32 {
